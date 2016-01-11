@@ -1,15 +1,17 @@
-# Socket.IO-client.java
-[![Build Status](https://travis-ci.org/nkzawa/socket.io-client.java.png?branch=master)](https://travis-ci.org/nkzawa/socket.io-client.java)
+# Socket.IO-client Java
+[![Build Status](https://travis-ci.org/socketio/socket.io-client-java.png?branch=master)](https://travis-ci.org/socketio/socket.io-client-java)
 
-This is the Socket.IO v1.x Client Library for Java, which is simply ported from the [JavaScript client](https://github.com/Automattic/socket.io-client).
+This is the Socket.IO v1.x Client Library for Java, which is simply ported from the [JavaScript client](https://github.com/socketio/socket.io-client).
 
 See also:
 
 - [Android chat demo](https://github.com/nkzawa/socket.io-android-chat)
-- [engine.io-client.java](https://github.com/nkzawa/engine.io-client.java)
+- [engine.io-client-java](https://github.com/socketio/engine.io-client-java)
 
 ## Installation
-The latest artifact is available on Maven Central. You'll also need [dependencies](http://nkzawa.github.io/socket.io-client.java/dependencies.html) to install.
+The latest artifact is available on Maven Central. You'll also need [dependencies](http://socketio.github.io/socket.io-client-java/dependencies.html) to install.
+
+**WARNING: The package name was changed to "io.socket" on v0.6.1 or later. Please make sure to update your dependency settings.**
 
 ### Maven
 Add the following dependency to your `pom.xml`.
@@ -17,9 +19,9 @@ Add the following dependency to your `pom.xml`.
 ```xml
 <dependencies>
   <dependency>
-    <groupId>com.github.nkzawa</groupId>
+    <groupId>io.socket</groupId>
     <artifactId>socket.io-client</artifactId>
-    <version>0.5.2</version>
+    <version>0.6.3</version>
   </dependency>
 </dependencies>
 ```
@@ -28,11 +30,14 @@ Add the following dependency to your `pom.xml`.
 Add it as a gradle dependency for Android Studio, in `build.gradle`:
 
 ```groovy
-compile 'com.github.nkzawa:socket.io-client:0.5.2'
+compile ('io.socket:socket.io-client:0.6.3') {
+  // excluding org.json which is provided by Android
+  exclude group: 'org.json', module: 'json'
+}
 ```
 
 ## Usage
-Socket.IO-client.java has almost the same api and features with the original JS client. You use `IO#socket` to initialize `Socket`:
+Socket.IO-client Java has almost the same api and features with the original JS client. You use `IO#socket` to initialize `Socket`:
 
 ```java
 socket = IO.socket("http://localhost");
@@ -122,16 +127,51 @@ Use custom SSL settings:
 ```java
 // default SSLContext for all sockets
 IO.setDefaultSSLContext(mySSLContext);
+IO.setDefaultHostnameVerifier(myHostnameVerifier);
 
 // set as an option
 opts = new IO.Options();
 opts.sslContext = mySSLContext;
+opts.hostnameVerifier = myHostnameVerifier;
 socket = IO.socket("https://localhost", opts);
 ```
 
 See the Javadoc for more details.
 
-http://nkzawa.github.io/socket.io-client.java/apidocs/
+http://socketio.github.io/socket.io-client-java/apidocs/
+
+### Transports and HTTP Headers
+You can access transports and their HTTP headers as follows.
+
+```java
+// Called upon transport creation.
+socket.io().on(Manager.EVENT_TRANSPORT, new new Emitter.listener() {
+  @Override
+  public void call(Object... args) {
+    Transport transport = (Transport)args[0];
+
+    transport.on(Transport.EVENT_REQUEST_HEADERS, new Emitter.Listener() {
+      @Override
+      public void call(Object... args) {
+        @SuppressWarnings("unchecked")
+        Map<String, List<String>> headers = (Map<String, List<String>>)args[0];
+        // modify request headers
+        headers.put("Cookie", Arrays.asList("foo=1;"));
+      }
+    });
+
+    transport.on(Transport.EVENT_RESPONSE_HEADERS, new Emitter.Listener() {
+      @Override
+      public void call(Object... args) {
+        @SuppressWarnings("unchecked")
+        Map<String, List<String>> headers = (Map<String, List<String>>)args[0];
+        // access response headers
+        String cookie = headers.get("Set-Cookie").get(0);
+      }
+    });
+  }
+});
+```
 
 ## Features
 This library supports all of the features the JS client does, including events, options and upgrading transport. Android is fully supported.

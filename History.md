@@ -1,3 +1,27 @@
+0.6.3 / 2015-12-23
+==================
+
+* bump `engine.io-client`.
+* fix back-off calculation
+* code quality improvements [civanyp]
+
+0.6.2 / 2015-10-10
+==================
+
+* compatible with socket.io 1.3.7
+* bump `engine.io-client`
+* fix wrong reconnection state
+
+0.6.1 / 2015-08-31
+==================
+
+* change package name to "io.socket"
+
+0.6.0 / 2015-08-09
+==================
+
+* bump `engine.io-client`.
+
 0.5.2 / 2015-06-28
 ==================
 
