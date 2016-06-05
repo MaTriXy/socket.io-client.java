@@ -3,6 +3,7 @@ package io.socket.client;
 import io.socket.emitter.Emitter;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -18,6 +19,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.equalTo;
+import static org.hamcrest.CoreMatchers.not;
 import static org.junit.Assert.assertThat;
 
 @RunWith(JUnit4.class)
@@ -44,6 +47,26 @@ public class ConnectionTest extends Connection {
         socket.connect();
         values.take();
         socket.close();
+    }
+
+    @Test(timeout = TIMEOUT)
+    public void startTwoConnectionsWithSamePath() throws URISyntaxException, InterruptedException {
+        Socket s1 = client("/");
+        Socket s2 = client("/");
+
+        assertThat(s1.io(), not(equalTo(s2.io())));
+        s1.close();
+        s2.close();
+    }
+
+    @Test(timeout = TIMEOUT)
+    public void startTwoConnectionsWithSamePathAndDifferentQuerystrings() throws URISyntaxException, InterruptedException {
+        Socket s1 = client("/?woot");
+        Socket s2 = client("/");
+
+        assertThat(s1.io(), not(equalTo(s2.io())));
+        s1.close();
+        s2.close();
     }
 
     @Test(timeout = TIMEOUT)
@@ -90,6 +113,7 @@ public class ConnectionTest extends Connection {
     @Test(timeout = TIMEOUT)
     public void receiveDateWithAck() throws URISyntaxException, InterruptedException {
         final BlockingQueue<Object> values = new LinkedBlockingQueue<Object>();
+
         socket = client();
         socket.on(Socket.EVENT_CONNECT, new Emitter.Listener() {
             @Override
@@ -108,6 +132,61 @@ public class ConnectionTest extends Connection {
         });
         socket.connect();
         assertThat(values.take(), instanceOf(String.class));
+        socket.close();
+    }
+
+    @Test(timeout = TIMEOUT)
+    public void sendBinaryAck() throws URISyntaxException, InterruptedException {
+        final BlockingQueue<Object> values = new LinkedBlockingQueue<Object>();
+        final byte[] buf = "huehue".getBytes(Charset.forName("UTF-8"));
+
+        socket = client();
+        socket.on(Socket.EVENT_CONNECT, new Emitter.Listener() {
+            @Override
+            public void call(Object... objects) {
+                socket.emit("callAckBinary");
+                socket.on("ack", new Emitter.Listener() {
+                    @Override
+                    public void call(Object... args) {
+                        Ack fn = (Ack) args[0];
+                        fn.call(buf);
+                    }
+                });
+
+                socket.on("ackBack", new Emitter.Listener() {
+                    @Override
+                    public void call(Object... args) {
+                        byte[] data = (byte[])args[0];
+                        values.offer(data);
+                    }
+                });
+            }
+        });
+        socket.connect();
+        Assert.assertArrayEquals(buf, (byte[])values.take());
+        socket.close();
+    }
+
+    @Test(timeout = TIMEOUT)
+    public void receiveBinaryDataWithAck() throws URISyntaxException, InterruptedException {
+        final BlockingQueue<Object> values = new LinkedBlockingQueue<Object>();
+        final byte[] buf = "huehue".getBytes(Charset.forName("UTF-8"));
+
+        socket = client();
+        socket.on(Socket.EVENT_CONNECT, new Emitter.Listener() {
+            @Override
+            public void call(Object... objects) {
+                socket.emit("getAckBinary", "", new Ack() {
+
+                    @Override
+                    public void call(Object... args) {
+                       values.offer(args[0]);
+                    }
+                });
+            }
+        });
+        socket.connect();
+        Assert.assertArrayEquals(buf, (byte[])values.take());
         socket.close();
     }
 
@@ -341,8 +420,8 @@ public class ConnectionTest extends Connection {
         IO.Options opts = createOptions();
         opts.reconnection = true;
         opts.timeout = 0;
-        opts.reconnectionAttempts = 5;
-        opts.reconnectionDelay = 10;
+        opts.reconnectionAttempts = 3;
+        opts.reconnectionDelay = 100;
         opts.randomizationFactor = 0.2;
         final Manager manager = new Manager(new URI(uri()), opts);
         socket = manager.socket("/timeout");
@@ -379,9 +458,8 @@ public class ConnectionTest extends Connection {
 
         socket.connect();
         values.take();
-        assertThat(reconnects[0], is(5));
-        // this fails sometimes
-        //assertThat(increasingDelay[0], is(true));
+        assertThat(reconnects[0], is(3));
+        assertThat(increasingDelay[0], is(true));
         socket.close();
         manager.close();
     }
@@ -467,6 +545,32 @@ public class ConnectionTest extends Connection {
     }
 
     @Test(timeout = TIMEOUT)
+    public void reconnectAfterStoppingReconnection() throws URISyntaxException, InterruptedException {
+        final BlockingQueue<Object> values = new LinkedBlockingQueue<Object>();
+        IO.Options opts = createOptions();
+        opts.forceNew = true;
+        opts.timeout = 0;
+        opts.reconnectionDelay = 10;
+        socket = client("/invalid", opts);
+        socket.once(Socket.EVENT_RECONNECT_ATTEMPT, new Emitter.Listener() {
+            @Override
+            public void call(Object... args) {
+                socket.once(Socket.EVENT_RECONNECT_ATTEMPT, new Emitter.Listener() {
+                    @Override
+                    public void call(Object... args) {
+                        values.offer("done");
+                    }
+                });
+                socket.disconnect();
+                socket.connect();
+            }
+        });
+        socket.connect();
+        values.take();
+        socket.disconnect();
+    }
+
+    @Test(timeout = TIMEOUT)
     public void stopReconnectingOnASocketAndKeepToReconnectOnAnother() throws URISyntaxException, InterruptedException {
         final BlockingQueue<Object> values = new LinkedBlockingQueue<Object>();
         final Manager manager = new Manager(new URI(uri()));
@@ -510,6 +614,33 @@ public class ConnectionTest extends Connection {
         }, 1000);
 
         assertThat((Boolean) values.take(), is(true));
+    }
+
+    @Test(timeout = TIMEOUT)
+    public void connectWhileDisconnectingAnotherSocket() throws URISyntaxException, InterruptedException {
+        final BlockingQueue<Object> values = new LinkedBlockingQueue<Object>();
+
+        final Manager manager = new Manager(new URI(uri()));
+        final Socket socket1 = manager.socket("/foo");
+        socket1.on(Socket.EVENT_CONNECT, new Emitter.Listener() {
+            @Override
+            public void call(Object... args) {
+                final Socket socket2 = manager.socket("/asd");
+                socket2.on(Socket.EVENT_CONNECT, new Emitter.Listener() {
+                    @Override
+                    public void call(Object... args) {
+                        values.offer("done");
+                        socket2.disconnect();
+                    }
+                });
+                socket2.open();
+                socket1.disconnect();
+            }
+        });
+
+        socket1.open();
+        values.take();
+        manager.close();
     }
 
     @Test(timeout = TIMEOUT)
@@ -730,6 +861,7 @@ public class ConnectionTest extends Connection {
         assertThat(((JSONObject)data).get("date"), instanceOf(String.class));
         socket.close();
     }
+
 
     @Test(timeout = TIMEOUT)
     public void sendAndGetBinaryData() throws URISyntaxException, InterruptedException {

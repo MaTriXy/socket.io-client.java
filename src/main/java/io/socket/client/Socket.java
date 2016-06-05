@@ -25,6 +25,8 @@ public class Socket extends Emitter {
      */
     public static final String EVENT_CONNECT = "connect";
 
+    public static final String EVENT_CONNECTING = "connecting";
+
     /**
      * Called on a disconnection.
      */
@@ -56,10 +58,15 @@ public class Socket extends Emitter {
 
     public static final String EVENT_RECONNECTING = Manager.EVENT_RECONNECTING;
 
+    public static final String EVENT_PING = Manager.EVENT_PING;
+
+    public static final String EVENT_PONG = Manager.EVENT_PONG;
+
     protected static Map<String, Integer> events = new HashMap<String, Integer>() {{
         put(EVENT_CONNECT, 1);
         put(EVENT_CONNECT_ERROR, 1);
         put(EVENT_CONNECT_TIMEOUT, 1);
+        put(EVENT_CONNECTING, 1);
         put(EVENT_DISCONNECT, 1);
         put(EVENT_ERROR, 1);
         put(EVENT_RECONNECT, 1);
@@ -67,6 +74,8 @@ public class Socket extends Emitter {
         put(EVENT_RECONNECT_FAILED, 1);
         put(EVENT_RECONNECT_ERROR, 1);
         put(EVENT_RECONNECTING, 1);
+        put(EVENT_PING, 1);
+        put(EVENT_PONG, 1);
     }};
 
     /*package*/ String id;
@@ -123,6 +132,7 @@ public class Socket extends Emitter {
                 Socket.this.subEvents();
                 Socket.this.io.open(); // ensure open
                 if (Manager.ReadyState.OPEN == Socket.this.io.readyState) Socket.this.onopen();
+                Socket.this.emit(EVENT_CONNECTING);
             }
         });
         return this;
@@ -346,8 +356,14 @@ public class Socket extends Emitter {
                         sent[0] = true;
                         logger.fine(String.format("sending ack %s", args.length != 0 ? args : null));
 
-                        int type = HasBinary.hasBinary(args) ? Parser.BINARY_ACK : Parser.ACK;
-                        Packet<JSONArray> packet = new Packet<JSONArray>(type, new JSONArray(Arrays.asList(args)));
+                        JSONArray jsonArgs = new JSONArray();
+                        for (Object arg : args) {
+                            jsonArgs.put(arg);
+                        }
+
+                        int type = HasBinary.hasBinary(jsonArgs)
+                            ? Parser.BINARY_ACK : Parser.ACK;
+                        Packet<JSONArray> packet = new Packet<JSONArray>(type, jsonArgs);
                         packet.id = id;
                         self.packet(packet);
                     }

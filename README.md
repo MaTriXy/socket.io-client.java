@@ -21,7 +21,7 @@ Add the following dependency to your `pom.xml`.
   <dependency>
     <groupId>io.socket</groupId>
     <artifactId>socket.io-client</artifactId>
-    <version>0.6.3</version>
+    <version>0.7.0</version>
   </dependency>
 </dependencies>
 ```
@@ -30,7 +30,7 @@ Add the following dependency to your `pom.xml`.
 Add it as a gradle dependency for Android Studio, in `build.gradle`:
 
 ```groovy
-compile ('io.socket:socket.io-client:0.6.3') {
+compile ('io.socket:socket.io-client:0.7.0') {
   // excluding org.json which is provided by Android
   exclude group: 'org.json', module: 'json'
 }
@@ -122,10 +122,10 @@ socket.on("foo", new Emitter.Listener() {
 });
 ```
 
-Use custom SSL settings:
+SSL (HTTPS, WSS) settings:
 
 ```java
-// default SSLContext for all sockets
+// default settings for all sockets
 IO.setDefaultSSLContext(mySSLContext);
 IO.setDefaultHostnameVerifier(myHostnameVerifier);
 
@@ -145,7 +145,7 @@ You can access transports and their HTTP headers as follows.
 
 ```java
 // Called upon transport creation.
-socket.io().on(Manager.EVENT_TRANSPORT, new new Emitter.listener() {
+socket.io().on(Manager.EVENT_TRANSPORT, new Emitter.listener() {
   @Override
   public void call(Object... args) {
     Transport transport = (Transport)args[0];
