@@ -1,3 +1,41 @@
+
+1.0.0 / 2017-07-14
+==================
+
+* compatible with socket.io 2.0.x
+* update engine.io-client
+* custom encoder/decoder support
+* fix socket id
+
+0.9.0 / 2017-07-11
+==================
+
+* compatible with socket.io 1.7.4
+* bump engine.io-client
+* send query on connect
+
+0.8.3 / 2016-12-12
+==================
+
+* bump `engine.io-client`
+
+0.8.2 / 2016-10-22
+==================
+
+* bump `engine.io-client`
+
+0.8.1 / 2016-09-27
+==================
+
+* bump `engine.io-client`
+
+0.8.0 / 2016-09-23
+==================
+
+* bump `engine.io-client`
+* README: fix typos [kylestev, lu-zero]
+* test: use TLSv1
+
 0.7.0 / 2016-02-01
 ==================
 
